@@ -23,6 +23,20 @@ class TQAgent:
         # In this function you could set up and initialize the states, actions and Q-table and storage for the rewards
         # This function should not return a value, store Q table etc as attributes of self
 
+
+
+        ## number of states is the 4x4 grid + the four different tiles
+        ## binary we can represent this as 2^(16+2) = 2^18
+        self.numberOfStates = 2 ** (gameboard.N_row * gameboard.N_col * 2)
+
+        ## number of actions
+        ## the tile can be at 4 positions and rotate 3 times (0, 90, 180, 270)
+        self.numberOfActions = 4 * 3
+    
+        ## initialize the Q-table
+        self.Q = np.zeros((self.numberOfStates, self.numberOfActions))
+
+
         # Useful variables: 
         # 'gameboard.N_row' number of rows in gameboard
         # 'gameboard.N_col' number of columns in gameboard
@@ -33,6 +47,7 @@ class TQAgent:
         pass
         # TO BE COMPLETED BY STUDENT
         # Here you can load the Q-table (to Q-table of self) from the input parameter strategy_file (used to test how the agent plays)
+        self.Q = np.load(strategy_file)
 
     def fn_read_state(self):
         pass
@@ -42,6 +57,17 @@ class TQAgent:
         # In this function you could calculate the current state of the gane board
         # You can for example represent the state as an integer entry in the Q-table
         # This function should not return a value, store the state as an attribute of self
+
+        ## the state is the gameboard (4x4) grid and the current tile. It is probably simpler to get from this binary representation to a integer representation
+        ## for this we first convert the gameboard to a binary representation. Flatten the gameboard and convert to binary
+        flattenedStates = self.gameboard.board.flatten() 
+        ## add the tile id
+        tileId = self.gameboard.cur_tile_type
+        tilebinary = self.integerToBinary(tileId)
+        flattenedStates = np.concatenate((flattenedStates, tilebinary))
+
+        self.stateId = self.binaryToInteger(flattenedStates)
+
 
         # Useful variables: 
         # 'self.gameboard.N_row' number of rows in gameboard
@@ -59,6 +85,18 @@ class TQAgent:
 
         # Useful variables: 
         # 'self.epsilon' parameter epsilon in epsilon-greedy policy
+
+        ## here we should implement the Q-learning algorithm
+
+
+        ## simply implement the gready policy
+        if self.epsilon == 0:
+            action = np.argmax(self.Q[self.stateId])
+
+        ## implement the epsilon greedy policy
+        else:
+            pass
+            ## ! implement the epsilon greedy policy here
 
         # Useful functions
         # 'self.gameboard.fn_move(tile_x,tile_orientation)' use this function to execute the selected action
@@ -99,6 +137,7 @@ class TQAgent:
             # TO BE COMPLETED BY STUDENT
             # Here you should write line(s) to copy the old state into the variable 'old_state' which is later passed to fn_reinforce()
 
+
             # Drop the tile on the game board
             reward=self.gameboard.fn_drop()
             # TO BE COMPLETED BY STUDENT
@@ -108,6 +147,36 @@ class TQAgent:
             self.fn_read_state()
             # Update the Q-table using the old state and the reward (the new state and the taken action should be stored as attributes in self)
             self.fn_reinforce(old_state,reward)
+
+    ## function to convert the binary state representation to an integer
+    ## the binary representation is a array of 0s and 1s
+    def binaryToInteger(self, binary):
+        # the binary array comes in a 1D array
+        binary = binary + 1
+        binary = binary / 2
+        print(binary)
+        # reverse the array
+        binary = binary[::-1]
+
+        value = 0
+        for i in range(len(binary)):
+            value += binary[i] * 2 ** i
+        return value
+    
+    def tileIntegerToBinary(self, tileID):
+        # check that the value is not greater than 3
+
+        if tileID == 0:
+            return np.array([-1, -1])
+        elif tileID == 1:
+            return np.array([-1, 1])
+        elif tileID == 2:
+            return np.array([1, -1])
+        elif tileID == 3:
+            return np.array([1, 1])
+        
+        else :
+            Exception("The tile id is not valid")
 
 
 class TDQNAgent:

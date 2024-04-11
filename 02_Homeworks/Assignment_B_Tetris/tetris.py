@@ -11,15 +11,18 @@ PARAM_TASK1d=4
 PARAM_TASK2a=5
 PARAM_TASK2b=6
 
+# path to the strategy files
+strategy_path = 'modeldata/strategy/'
+
 # Choose to control the game yourself ('human_player=1') to test the setups in the different tasks
 human_player=0
 human_player=1
 
 # Choose parameter sets for different tasks
-param_set=PARAM_TASK1a
-#param_set=PARAM_TASK1b
+# param_set=PARAM_TASK1a
+param_set=PARAM_TASK1b
 #param_set=PARAM_TASK1c
-#param_set=PARAM_TASK1d
+# param_set=PARAM_TASK1d
 #param_set=PARAM_TASK2a
 #param_set=PARAM_TASK2b
 
@@ -241,6 +244,16 @@ else:
     while True:
         gameboard.agent.fn_turn()
 
+        # if gameover ask to save strategy
+        if gameboard.gameover:
+            # ask for input
+            while(True):
+                getInput = input("Game Over! Save strategy (save Q-table)? (y/n): ")
+                if getInput == 'y':
+                    print('Saving strategy...')
+                    np.save(strategy_path + 'strategy.npy', gameboard.agent.Q)
+                else:
+                    print('Strategy not saved')
 
 
 
