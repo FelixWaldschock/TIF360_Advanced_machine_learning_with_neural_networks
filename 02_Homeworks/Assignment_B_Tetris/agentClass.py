@@ -2,6 +2,13 @@ import numpy as np
 import random
 import math
 import h5py
+import matplotlib.pyplot as plt
+import scienceplots
+import datetime
+import json
+
+
+plt.style.use('science')
 
 # This file provides the skeleton structure for the classes TQAgent and TDQNAgent to be completed by you, the student.
 # Locations starting with # TO BE COMPLETED BY STUDENT indicates missing code that should be written by you.
@@ -22,20 +29,44 @@ class TQAgent:
         # Instructions:
         # In this function you could set up and initialize the states, actions and Q-table and storage for the rewards
         # This function should not return a value, store Q table etc as attributes of self
+        self.stateTracker = []
+        self.reward_tots = []
+        self.totalrewards = 0
+        self.totalRewardTracker = []
+        self.gameLength = 0
+        self.gameLengthTracker = []
+        self.stateTracker = []
+        self.actionTracker = []
 
-
+        self.actionIsTaken = False
 
         ## number of states is the 4x4 grid + the four different tiles
         ## binary we can represent this as 2^(16+2) = 2^18
-        self.numberOfStates = 2 ** (gameboard.N_row * gameboard.N_col * 2)
+        self.numberOfStates = 2 ** (gameboard.N_row * gameboard.N_col + 2)
 
         ## number of actions
-        ## the tile can be at 4 positions and rotate 3 times (0, 90, 180, 270)
-        self.numberOfActions = 4 * 3
+        ## Translation      (None, Left, LeftLeft, Right)
+        ## Rotation         (None, 90, 180, 270)
+        numberOfPossibleTranslations = 4
+        numberOfPossibleRotations = 4
+        self.numberOfActions = numberOfPossibleTranslations * numberOfPossibleRotations
     
         ## initialize the Q-table
         self.Q = np.zeros((self.numberOfStates, self.numberOfActions))
+        
+        self.fn_read_state()
 
+        ## initialize the Q-table with random values
+        # self.Q = np.random.randint(0, 5, self.Q.shape)
+
+        print("Q-table and agent initialized")
+        print("Shape of Q-table: ", self.Q.shape)
+
+
+        self.bestReward = -150
+        self.bestQ = np.zeros((self.numberOfStates, self.numberOfActions))
+        
+        self.last_actionID = 0
 
         # Useful variables: 
         # 'gameboard.N_row' number of rows in gameboard
@@ -44,13 +75,11 @@ class TQAgent:
         # 'self.episode_count' the total number of episodes in the training
 
     def fn_load_strategy(self,strategy_file):
-        pass
         # TO BE COMPLETED BY STUDENT
         # Here you can load the Q-table (to Q-table of self) from the input parameter strategy_file (used to test how the agent plays)
         self.Q = np.load(strategy_file)
 
     def fn_read_state(self):
-        pass
         # TO BE COMPLETED BY STUDENT
         # This function should be written by you
         # Instructions:
@@ -63,11 +92,12 @@ class TQAgent:
         flattenedStates = self.gameboard.board.flatten() 
         ## add the tile id
         tileId = self.gameboard.cur_tile_type
-        tilebinary = self.integerToBinary(tileId)
-        flattenedStates = np.concatenate((flattenedStates, tilebinary))
 
+        self.tilebinary = self.tileIntegerToBinary(tileId)
+        flattenedStates = np.concatenate((flattenedStates, self.tilebinary))
         self.stateId = self.binaryToInteger(flattenedStates)
 
+        self.stateTracker.append(self.stateId)
 
         # Useful variables: 
         # 'self.gameboard.N_row' number of rows in gameboard
@@ -76,7 +106,6 @@ class TQAgent:
         # 'self.gameboard.cur_tile_type' identifier of the current tile that should be placed on the game board (integer between 0 and len(self.gameboard.tiles))
 
     def fn_select_action(self):
-        pass
         # TO BE COMPLETED BY STUDENT
         # This function should be written by you
         # Instructions:
@@ -88,15 +117,65 @@ class TQAgent:
 
         ## here we should implement the Q-learning algorithm
 
+        # if(self.episode == 900):
+        #     print("lets debug :)")
+        self.actionIsTaken = False
+        flag = 0
+        taboList = []
+        self.validationValue = 0
+        while self.validationValue == 0:
+    
+            ## simply implement the gready policy
+            if self.epsilon == 0:
+                # print("state ID: ", self.stateId)
+                # print("Q-table shape: ", self.Q.shape)
+                
+                ## ! we need to handle the case where we have same Q-values for multiple actions
+                ## than we should choose a random of these actions
 
-        ## simply implement the gready policy
-        if self.epsilon == 0:
-            action = np.argmax(self.Q[self.stateId])
+                if self.actionIsTaken == False and len(np.where(self.Q[self.stateId] == np.max(self.Q[self.stateId]))[0]) > 1 and len(taboList) < len(np.where(self.Q[self.stateId] == np.max(self.Q[self.stateId]))[0]):
+                    # print("Multiple actions with the same Q-value")
+                    
+                    self.last_actionID = np.random.choice(np.where(self.Q[self.stateId] == np.max(self.Q[self.stateId]))[0])
+                    # ! Here we should check if the action to be not in the tabo list -> future work
+                    taboList.append(self.last_actionID)
 
-        ## implement the epsilon greedy policy
-        else:
-            pass
-            ## ! implement the epsilon greedy policy here
+                    self.actionIsTaken = True
+
+                else:
+                    flag = 1
+                    self.last_actionID = np.argmax(self.Q[self.stateId])
+
+                ## ! we should probably check if the action is valid
+                ## how could the agent know if the action is valid?
+
+                # execute the action
+                self.validationValue = self.executeAction(self.last_actionID)
+
+                # if self.validationValue == 0: we need to undo the action
+                if (self.validationValue == 0 and flag == 0):
+                    self.executeReverseAction(self.last_actionID)
+
+
+            ## implement the epsilon greedy policy
+            else:
+                # check that epsilon is between 0 and 1
+                if self.epsilon < 0 or self.epsilon > 1:
+                    Exception("Epsilon should be between 0 and 1")
+                
+                ## generate a random number between 0 and 1
+                randomValue = random.random()
+                if randomValue < self.epsilon:
+                    ## choose a random action
+                    self.last_actionID = random.randint(0, self.numberOfActions-1)
+                    validationValue = self.executeAction(self.last_actionID)
+
+                    ## ? maybe we could use a more fancy random selection here, something like roulette wheel selection. But lets keep it simple for now
+                
+                else:
+                    self.last_actionID = np.argmax(self.Q[self.stateId])
+                    # execute the action
+                    validationValue = self.executeAction(self.last_actionID)          
 
         # Useful functions
         # 'self.gameboard.fn_move(tile_x,tile_orientation)' use this function to execute the selected action
@@ -106,47 +185,124 @@ class TQAgent:
         # You can use this function to map out which actions are valid or not
     
     def fn_reinforce(self,old_state,reward):
-        pass
         # TO BE COMPLETED BY STUDENT
         # This function should be written by you
         # Instructions:
         # Update the Q table using state and action stored as attributes in self and using function arguments for the old state and the reward
         # This function should not return a value, the Q table is stored as an attribute of self
 
+        ## here we should probably implement the equation 3 from the assignment
+        ## $Q_{t+1}(s_{t},a_{t})=Q_{t}(s_{t},a_{t})+\alpha\left(r_{t+1}+\mathrm{max}_{a}Q_{t}(s_{t+1},a)-Q_{t}(s_{t},a_{t})\right)$
+        # print(self.last_actionID)
+        # print(self.Q[old_state])
+        tmp1 = self.Q[old_state, self.last_actionID]
+        tmp2 = self.alpha * (reward + np.max(self.Q[self.stateId]) - self.Q[old_state, self.last_actionID])
+        # if (tmp1 + tmp2) < 0:
+        #     print("Updated Q-value: ", tmp1 + tmp2)
+        ## update the Q-table
+        self.Q[old_state, self.last_actionID] = tmp1 + tmp2
+        
         # Useful variables: 
         # 'self.alpha' learning rate
 
     def fn_turn(self):
         if self.gameboard.gameover:
             self.episode+=1
+
+            self.reward_tots = np.array(self.reward_tots)
+            # determine the total reward for the episode
+            self.totalrewards = np.sum(self.reward_tots)
+            self.totalRewardTracker.append(self.totalrewards)
+            self.gameLengthTracker.append(self.gameLength)
+        
+
+            if (self.totalrewards > self.bestReward):
+                self.bestReward = self.totalrewards
+                self.bestQ = self.Q
+                self.bestStateTracker = self.stateTracker
+                self.bestActionTracker = self.actionTracker
+                print("New best reward: ", self.bestReward)
+                print("=======================================")
+                print("Episode: ", self.episode)
+                print("Sum of Rewards in this episode: ", np.sum(self.reward_tots))
+                print("Total reward for this episode: ", self.totalrewards)
+                print("Total length of episode: ", self.gameLength)
+                print("=======================================")
+
+            # print(self.episode)
             if self.episode%100==0:
-                print('episode '+str(self.episode)+'/'+str(self.episode_count)+' (reward: ',str(np.sum(self.reward_tots[range(self.episode-100,self.episode)])),')')
+                # print('episode '+str(self.episode)+'/'+str(self.episode_count)+' (reward: ',str(np.sum(self.reward_tots[range(self.episode-100,self.episode)])),')')
+                print('episode '+str(self.episode)+'/'+str(self.episode_count)+' (reward: ',str(np.sum(self.reward_tots)),')')
             if self.episode%1000==0:
                 saveEpisodes=[1000,2000,5000,10000,20000,50000,100000,200000,500000,1000000];
                 if self.episode in saveEpisodes:
                     pass
                     # TO BE COMPLETED BY STUDENT
                     # Here you can save the rewards and the Q-table to data files for plotting of the rewards and the Q-table can be used to test how the agent plays
+                    
+                    # read logfiles/conf/counter.txt
+                    now = datetime.datetime.now()
+                    index = now.strftime("%Y-%m-%d %H:%M")
+                    
+
+                    # write index to /logfiles/conf/latest.txt
+                    with open("logfiles/conf/latest.txt", "w") as f:
+                        f.write(index)
+
+                    bestScore = self.readLogJSON("bestScore")
+                    index = self.readLogJSON("index") + 1
+                    
+                    if np.max(np.array(self.totalRewardTracker)) > bestScore:
+                        self.writeBestRewardValue(self.totalrewards, "somelabel", index)
+                        print("New best score: ", self.totalrewards)
+                    else:
+                        self.writeBestRewardValue(bestScore, "somelabel", index)
+
+                    # save the rewards
+                    np.save("logfiles/rewards_" + str(index), np.array(self.totalRewardTracker))
+                    # save the Q-table
+                    np.save("logfiles/Q-table_" + str(index), self.bestQ)
+                    # save game length tracker
+                    np.save("logfiles/gameLengthTracker_" + str(index), np.array(self.gameLengthTracker))
+                    # save the state tracker
+                    np.save("logfiles/stateTracker_" + str(index), np.array(self.bestStateTracker))
+                    # save the action tracker
+                    np.save("logfiles/actionTracker_" + str(index), np.array(self.bestActionTracker))
+
+                    # save the state tracker
+                    # np.save("logfiles/stateTracker_" + str(index), np.array(self.stateTracker))
+                    print("Saved as version: " + str(index))
+
+                    
             if self.episode>=self.episode_count:
                 raise SystemExit(0)
             else:
+                self.reward_tots = []
+                self.gameLength = 0
                 self.gameboard.fn_restart()
         else:
             # Select and execute action (move the tile to the desired column and orientation)
+            self.actionIsTaken = False
             self.fn_select_action()
+            self.actionTracker.append(self.last_actionID)
             # TO BE COMPLETED BY STUDENT
             # Here you should write line(s) to copy the old state into the variable 'old_state' which is later passed to fn_reinforce()
-
-
-            # Drop the tile on the game board
-            reward=self.gameboard.fn_drop()
+            old_state = self.stateId
+            self.stateTracker.append(old_state)
+            # Drop the tile on the game board and reveive the reward
+            self.reward=self.gameboard.fn_drop()
+            # print(self.reward)
+            self.actionIsTaken = True
+            self.gameLength += 1
             # TO BE COMPLETED BY STUDENT
             # Here you should write line(s) to add the current reward to the total reward for the current episode, so you can save it to disk later
+            self.reward_tots.append(self.reward)
 
             # Read the new state
             self.fn_read_state()
+
             # Update the Q-table using the old state and the reward (the new state and the taken action should be stored as attributes in self)
-            self.fn_reinforce(old_state,reward)
+            self.fn_reinforce(old_state,self.reward)
 
     ## function to convert the binary state representation to an integer
     ## the binary representation is a array of 0s and 1s
@@ -154,18 +310,16 @@ class TQAgent:
         # the binary array comes in a 1D array
         binary = binary + 1
         binary = binary / 2
-        print(binary)
+
         # reverse the array
         binary = binary[::-1]
 
         value = 0
         for i in range(len(binary)):
             value += binary[i] * 2 ** i
-        return value
+        return int(value)
     
     def tileIntegerToBinary(self, tileID):
-        # check that the value is not greater than 3
-
         if tileID == 0:
             return np.array([-1, -1])
         elif tileID == 1:
@@ -174,10 +328,158 @@ class TQAgent:
             return np.array([1, -1])
         elif tileID == 3:
             return np.array([1, 1])
-        
         else :
             Exception("The tile id is not valid")
 
+    def moveLeft(self):
+        return self.gameboard.fn_move(self.gameboard.tile_x-1,self.gameboard.tile_orientation)    
+
+    def moveLeftLeft(self):
+        validationValue = self.gameboard.fn_move(self.gameboard.tile_x-1,self.gameboard.tile_orientation)
+        validationValue *= self.gameboard.fn_move(self.gameboard.tile_x-1,self.gameboard.tile_orientation)
+        # if one of the two is 0, returns 0 
+        return validationValue
+
+    def moveRight(self):
+        return self.gameboard.fn_move(self.gameboard.tile_x+1,self.gameboard.tile_orientation)
+
+    def moveRightRight(self):
+        validationValue = self.gameboard.fn_move(self.gameboard.tile_x+1,self.gameboard.tile_orientation)
+        validationValue *= self.gameboard.fn_move(self.gameboard.tile_x+1,self.gameboard.tile_orientation)
+        return validationValue
+    
+    # def moveDown(self):
+    #     self.reward_tots[self.episode]+=self.gameboard.fn_drop()
+        
+
+    def rotate(self, numberOfRotations):
+        for i in range(numberOfRotations):
+            self.gameboard.fn_move(self.gameboard.tile_x,(self.gameboard.tile_orientation+1)%len(self.gameboard.tiles[self.gameboard.cur_tile_type]))
+
+    def executeAction(self, actionID):
+        # cases for the actionID
+        ## 0   ->  [No Trans, No Rot]
+        ## 1   ->  [No Trans, 90]
+        ## 2   ->  [No Trans, 180]
+        ## 3   ->  [No Trans, 270]
+        ## 4   ->  [Left, No Rot]
+        ## 5   ->  [Left, 90]
+        ## 6   ->  [Left, 180]
+        ## 7   ->  [Left, 270]
+        ## 8   ->  [LeftLeft, No Rot]
+        ## 9   ->  [LeftLeft, 90]
+        ## 10  ->  [LeftLeft, 180]
+        ## 11  ->  [LeftLeft, 270]
+        ## 12  ->  [Right, No Rot]
+        ## 13  ->  [Right, 90]
+        ## 14  ->  [Right, 180]
+        ## 15  ->  [Right, 270]
+        validationValue = 1
+        match actionID:
+            case 0:                 # [No Trans, No Rot]
+                pass
+            case 1:                 # [No Trans, 90]
+                self.rotate(1)
+            case 2:                 # [No Trans, 180]
+                self.rotate(2)
+            case 3:                 # [No Trans, 270]
+                self.rotate(3)
+            case 4:                 # [Left, No Rot]
+                validationValue = self.moveLeft()
+            case 5:                 # [Left, 90]
+                self.rotate(1)
+                validationValue = self.moveLeft()
+            case 6:                 # [Left, 180]
+                self.rotate(2)
+                validationValue = self.moveLeft()    
+            case 7:                 # [Left, 270]
+                self.rotate(3)
+                validationValue = self.moveLeft()                
+            case 8:                 # [LeftLeft, No Rot]    
+                validationValue = self.moveLeftLeft()
+            case 9:                 # [LeftLeft, 90]
+                self.rotate(1)
+                validationValue = self.moveLeftLeft()
+            case 10:                # [LeftLeft, 180]
+                self.rotate(2)
+                validationValue = self.moveLeftLeft()    
+            case 11:                # [LeftLeft, 270]
+                self.rotate(3)
+                validationValue = self.moveLeftLeft()
+            case 12:                # [Right, No Rot]
+                validationValue = self.moveRight()
+            case 13:                # [Right, 90]
+                self.rotate(1)
+                validationValue = self.moveRight()       
+            case 14:                # [Right, 180]
+                self.rotate(2)
+                validationValue = self.moveRight()
+            case 15:                # [Right, 270]
+                self.rotate(3)
+                validationValue = self.moveRight()
+                
+            case _:                 # default
+                Exception("The action ID is not valid")
+        self.validationValue = validationValue
+        return validationValue
+    
+    def executeReverseAction(self, actionID):
+        match actionID:
+            case 0:
+                pass
+            case 1:
+                self.rotate(3)
+            case 2:
+                self.rotate(2)
+            case 3:
+                self.rotate(1)
+            case 4:
+                self.moveRight()
+            case 5:
+                self.rotate(3)
+                self.moveRight()
+            case 6:
+                self.rotate(2)
+                self.moveRight()
+            case 7:
+                self.rotate(1)
+                self.moveRight()
+            case 8:
+                self.moveRightRight()
+            case 9:
+                self.rotate(3)
+                self.moveRightRight()
+            case 10:
+                self.rotate(2)
+                self.moveRightRight()
+            case 11:
+                self.rotate(1)
+                self.moveRightRight()
+            case 12:
+                self.moveLeft()
+            case 13:
+                self.rotate(3)
+                self.moveLeft()
+            case 14:
+                self.rotate(2)
+                self.moveLeft()
+            case 15:
+                self.rotate(1)
+                self.moveLeft()
+            case _:
+                Exception("The action ID is not valid")
+        
+
+    
+    def readLogJSON(self, key):
+        with open("logfiles/conf/log.json", "r") as file:
+            data = json.load(file)
+            return (data[key])
+    
+    def writeBestRewardValue(self, value, label, index):
+        data = {"bestScore": value, "bestScoreLabel": label, "index": index}
+        with open("logfiles/conf/log.json", "w") as file:
+            json.dump(data, file)
 
 class TDQNAgent:
     # Agent for learning to play tetris using Q-learning

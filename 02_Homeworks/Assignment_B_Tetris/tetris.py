@@ -4,6 +4,7 @@ import h5py
 import gameboardClass
 import agentClass
 
+
 PARAM_TASK1a=1
 PARAM_TASK1b=2
 PARAM_TASK1c=3
@@ -16,11 +17,11 @@ strategy_path = 'modeldata/strategy/'
 
 # Choose to control the game yourself ('human_player=1') to test the setups in the different tasks
 human_player=0
-human_player=1
+# human_player=1
 
 # Choose parameter sets for different tasks
-# param_set=PARAM_TASK1a
-param_set=PARAM_TASK1b
+param_set=PARAM_TASK1a
+# param_set=PARAM_TASK1b
 #param_set=PARAM_TASK1c
 # param_set=PARAM_TASK1d
 #param_set=PARAM_TASK2a
@@ -30,6 +31,7 @@ param_set=PARAM_TASK1b
 # If you change 'strategy_file' to the location of a file containing a stored Q-table or Q-network, you can evaluate the success of the found strategy
 if param_set==PARAM_TASK1a:
     strategy_file=''
+    strategy_file='logfiles/Q-table_57.npy'
 elif param_set==PARAM_TASK1b:
     strategy_file=''
 elif param_set==PARAM_TASK1c:
@@ -72,6 +74,7 @@ if param_set==PARAM_TASK1a:
 
     alpha=0.2
     epsilon=0
+    episode_count=1000
     episode_count=1000
 
     if (not human_player) or evaluate_agent:
@@ -192,7 +195,8 @@ if isinstance(gameboard.agent,agentClass.THumanAgent):
     # Loop until the window is closed
     while True:
         if isinstance(gameboard.agent,agentClass.THumanAgent):
-            gameboard.agent.fn_turn(pygame)
+            gameboard.agent.fn_turn(pygame)     
+
         else:
             pygame.event.pump()
             for event in pygame.event.get():
@@ -244,16 +248,7 @@ else:
     while True:
         gameboard.agent.fn_turn()
 
-        # if gameover ask to save strategy
-        if gameboard.gameover:
-            # ask for input
-            while(True):
-                getInput = input("Game Over! Save strategy (save Q-table)? (y/n): ")
-                if getInput == 'y':
-                    print('Saving strategy...')
-                    np.save(strategy_path + 'strategy.npy', gameboard.agent.Q)
-                else:
-                    print('Strategy not saved')
+
 
 
 
