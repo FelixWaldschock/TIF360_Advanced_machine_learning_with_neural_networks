@@ -1,3 +1,29 @@
+.git/objects/pack/pack-1309c5ab34cf96f4f985b47cce8d2f78a0dbe86a.pack
+.git/objects/pack/tmp_pack_PZQEZM
 /01_Testing_PyTorch/data/cifar-10-python.tar.gz
 /02_Homeworks/Assignment_A_Graph/dataset/graph_data_decoding_2024.pt
 /03_Workshops/01_Convolutional_Neural_Networks_for_Image_Analysis/Code_Examples/particle_dataset/.git/objects/pack/pack-e23a94673e916c8f4564d4ec9c0ebed1e2502886.pack
+01_Testing_PyTorch/data/cifar-10-batches-py/data_batch_1
+01_Testing_PyTorch/data/cifar-10-batches-py/data_batch_2
+01_Testing_PyTorch/data/cifar-10-batches-py/data_batch_3
+01_Testing_PyTorch/data/cifar-10-batches-py/data_batch_4
+01_Testing_PyTorch/data/cifar-10-batches-py/data_batch_5
+01_Testing_PyTorch/data/cifar-10-batches-py/test_batch
+01_Testing_PyTorch/data/cifar-10-python.tar.gz
+02_Homeworks/Assignment_A_Graph/dataset/graph_data_decoding_2024.pt
+02_Homeworks/Assignment_A_Graph/dataset/graph_data_decoding_2024_small.pt
+02_Homeworks/Assignment_B_Tetris/logfiles/Q-table_55.npy
+02_Homeworks/Assignment_B_Tetris/logfiles/Q-table_56.npy
+02_Homeworks/Assignment_B_Tetris/logfiles/Q-table_57.npy
+02_Homeworks/Assignment_B_Tetris/logfiles/Q-table_58.npy
+03_Workshops/01_Convolutional_Neural_Networks_for_Image_Analysis/Code_Examples/particle_dataset/.git/objects/pack/pack-e23a94673e916c8f4564d4ec9c0ebed1e2502886.pack
+03_Workshops/01_Convolutional_Neural_Networks_for_Image_Analysis/Code_Examples/particle_dataset/high_noise.avi
+03_Workshops/01_Convolutional_Neural_Networks_for_Image_Analysis/Code_Examples/particle_dataset/low_noise.avi
+03_Workshops/01_Convolutional_Neural_Networks_for_Image_Analysis/Code_Examples/particle_dataset/particle_dataset.zip
+03_Workshops/02_DeepDreams_and_Neural_Style_Transfer/Deepdream/deepdream.ipynb
+03_Workshops/02_DeepDreams_and_Neural_Style_Transfer/Style_transfer/style_transfer.ipynb
+03_Workshops/03_Encoder-Decoders for Latent Space Manipulation/Denoising/lightning_logs/version_10/checkpoints/epoch=149-step=4800.ckpt
+03_Workshops/03_Encoder-Decoders for Latent Space Manipulation/VAE_MNIST/MNIST_dataset/.git/objects/pack/pack-bf32c1e21bfbd59e0cb4f30fcd6d0cb3de175dd6.pack
+03_Workshops/03_Encoder-Decoders for Latent Space Manipulation/VAE_MNIST/MNIST_dataset/mnist.zip
+03_Workshops/05_Reservoir_and_RNN/weather_dataset/jena_climate_2009_2016.csv
+Workshops/02/Deepdream/deepdream.ipynb
