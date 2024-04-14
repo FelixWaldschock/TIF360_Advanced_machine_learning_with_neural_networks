@@ -13,7 +13,7 @@ class TGameBoard:
         # Create table for game board, entries 1 means occupied, entries -1 means free
         # Use type float32 to simplify conversion to tensors in torch
         self.board=np.empty((N_row,N_col),dtype=np.float32)
-        self.cur_tile_type=0
+        self.cur_tile_type=-1
         self.tile_x=-1
         self.tile_y=-1
         self.tile_orientation=-1

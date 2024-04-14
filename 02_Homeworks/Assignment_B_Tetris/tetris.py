@@ -17,21 +17,21 @@ strategy_path = 'modeldata/strategy/'
 
 # Choose to control the game yourself ('human_player=1') to test the setups in the different tasks
 human_player=0
-# human_player=1
+human_player=1
 
 # Choose parameter sets for different tasks
 param_set=PARAM_TASK1a
 # param_set=PARAM_TASK1b
-#param_set=PARAM_TASK1c
+# param_set=PARAM_TASK1c
 # param_set=PARAM_TASK1d
-#param_set=PARAM_TASK2a
+param_set=PARAM_TASK2a
 #param_set=PARAM_TASK2b
 
 # Use files to evaluate strategy
 # If you change 'strategy_file' to the location of a file containing a stored Q-table or Q-network, you can evaluate the success of the found strategy
 if param_set==PARAM_TASK1a:
     strategy_file=''
-    strategy_file='logfiles/Q-table_57.npy'
+    # strategy_file='logfiles/Q-table_60.npy'
 elif param_set==PARAM_TASK1b:
     strategy_file=''
 elif param_set==PARAM_TASK1c:

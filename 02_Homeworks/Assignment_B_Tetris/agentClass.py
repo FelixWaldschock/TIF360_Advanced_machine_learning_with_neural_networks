@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import scienceplots
 import datetime
 import json
+import torch
 
 
 plt.style.use('science')
@@ -38,6 +39,7 @@ class TQAgent:
         self.stateTracker = []
         self.actionTracker = []
 
+
         self.actionIsTaken = False
 
         ## number of states is the 4x4 grid + the four different tiles
@@ -54,7 +56,7 @@ class TQAgent:
         ## initialize the Q-table
         self.Q = np.zeros((self.numberOfStates, self.numberOfActions))
         
-        self.fn_read_state()
+        # self.fn_read_state()
 
         ## initialize the Q-table with random values
         # self.Q = np.random.randint(0, 5, self.Q.shape)
@@ -67,6 +69,10 @@ class TQAgent:
         self.bestQ = np.zeros((self.numberOfStates, self.numberOfActions))
         
         self.last_actionID = 0
+
+
+
+        self.sessionIndex = self.readLogJSON("index") + 1
 
         # Useful variables: 
         # 'gameboard.N_row' number of rows in gameboard
@@ -117,8 +123,6 @@ class TQAgent:
 
         ## here we should implement the Q-learning algorithm
 
-        # if(self.episode == 900):
-        #     print("lets debug :)")
         self.actionIsTaken = False
         flag = 0
         taboList = []
@@ -177,6 +181,8 @@ class TQAgent:
                     # execute the action
                     validationValue = self.executeAction(self.last_actionID)          
 
+
+
         # Useful functions
         # 'self.gameboard.fn_move(tile_x,tile_orientation)' use this function to execute the selected action
         # The input argument 'tile_x' contains the column of the tile (0 <= tile_x < self.gameboard.N_col)
@@ -214,7 +220,6 @@ class TQAgent:
             self.totalrewards = np.sum(self.reward_tots)
             self.totalRewardTracker.append(self.totalrewards)
             self.gameLengthTracker.append(self.gameLength)
-        
 
             if (self.totalrewards > self.bestReward):
                 self.bestReward = self.totalrewards
@@ -230,7 +235,7 @@ class TQAgent:
                 print("=======================================")
 
             # print(self.episode)
-            if self.episode%100==0:
+            if self.episode%1000==0:
                 # print('episode '+str(self.episode)+'/'+str(self.episode_count)+' (reward: ',str(np.sum(self.reward_tots[range(self.episode-100,self.episode)])),')')
                 print('episode '+str(self.episode)+'/'+str(self.episode_count)+' (reward: ',str(np.sum(self.reward_tots)),')')
             if self.episode%1000==0:
@@ -242,32 +247,34 @@ class TQAgent:
                     
                     # read logfiles/conf/counter.txt
                     now = datetime.datetime.now()
-                    index = now.strftime("%Y-%m-%d %H:%M")
+                    # index = now.strftime("%Y-%m-%d %H:%M")
                     
 
-                    # write index to /logfiles/conf/latest.txt
-                    with open("logfiles/conf/latest.txt", "w") as f:
-                        f.write(index)
+                    # # write index to /logfiles/conf/latest.txt
+                    # with open("logfiles/conf/latest.txt", "w") as f:
+                    #     f.write(index)
 
                     bestScore = self.readLogJSON("bestScore")
-                    index = self.readLogJSON("index") + 1
+                    index = self.sessionIndex
                     
-                    if np.max(np.array(self.totalRewardTracker)) > bestScore:
-                        self.writeBestRewardValue(self.totalrewards, "somelabel", index)
-                        print("New best score: ", self.totalrewards)
-                    else:
-                        self.writeBestRewardValue(bestScore, "somelabel", index)
+                    # if np.max(np.array(self.totalRewardTracker)) > bestScore:
+                    #     self.writeBestRewardValue(self.totalrewards, "newBest", index)
+                    #     print("New best score: ", self.totalrewards)
+                    # else:
+                    self.writeBestRewardValue(bestScore, "somelabel", index)
 
                     # save the rewards
-                    np.save("logfiles/rewards_" + str(index), np.array(self.totalRewardTracker))
+                    np.save("logfiles/rewards_" + str(index) + '_' + str(self.episode), np.array(self.totalRewardTracker))
                     # save the Q-table
-                    np.save("logfiles/Q-table_" + str(index), self.bestQ)
+                    np.save("logfiles/Q-table_" + str(index)+ '_' + str(self.episode), self.bestQ)
                     # save game length tracker
-                    np.save("logfiles/gameLengthTracker_" + str(index), np.array(self.gameLengthTracker))
+                    np.save("logfiles/gameLengthTracker_" + str(index)+ '_' + str(self.episode), np.array(self.gameLengthTracker))
                     # save the state tracker
-                    np.save("logfiles/stateTracker_" + str(index), np.array(self.bestStateTracker))
+                    np.save("logfiles/stateTracker_" + str(index)+ '_' + str(self.episode), np.array(self.bestStateTracker))
                     # save the action tracker
-                    np.save("logfiles/actionTracker_" + str(index), np.array(self.bestActionTracker))
+                    np.save("logfiles/actionTracker_" + str(index)+ '_' + str(self.episode), np.array(self.bestActionTracker))
+                    # # save the moving average tracker
+                    # np.save("logfiles/movingAverageTracker_" + str(index)+ '_' + str(self.episode), np.array(self.movingAverageTracker))
 
                     # save the state tracker
                     # np.save("logfiles/stateTracker_" + str(index), np.array(self.stateTracker))
@@ -275,6 +282,12 @@ class TQAgent:
 
                     
             if self.episode>=self.episode_count:
+                # override log.json
+                self.writeBestRewardValue(self.bestReward, "bestScore", self.sessionIndex)
+
+                # save the best Q-table
+                np.save("logfiles/bestQ-table_" + str(self.sessionIndex), self.bestQ)            
+
                 raise SystemExit(0)
             else:
                 self.reward_tots = []
@@ -291,9 +304,11 @@ class TQAgent:
             self.stateTracker.append(old_state)
             # Drop the tile on the game board and reveive the reward
             self.reward=self.gameboard.fn_drop()
+
             # print(self.reward)
             self.actionIsTaken = True
             self.gameLength += 1
+            # print("Drop: ", self.reward)
             # TO BE COMPLETED BY STUDENT
             # Here you should write line(s) to add the current reward to the total reward for the current episode, so you can save it to disk later
             self.reward_tots.append(self.reward)
@@ -303,6 +318,7 @@ class TQAgent:
 
             # Update the Q-table using the old state and the reward (the new state and the taken action should be stored as attributes in self)
             self.fn_reinforce(old_state,self.reward)
+
 
     ## function to convert the binary state representation to an integer
     ## the binary representation is a array of 0s and 1s
@@ -335,10 +351,12 @@ class TQAgent:
         return self.gameboard.fn_move(self.gameboard.tile_x-1,self.gameboard.tile_orientation)    
 
     def moveLeftLeft(self):
-        validationValue = self.gameboard.fn_move(self.gameboard.tile_x-1,self.gameboard.tile_orientation)
-        validationValue *= self.gameboard.fn_move(self.gameboard.tile_x-1,self.gameboard.tile_orientation)
+        validationValue0 = self.gameboard.fn_move(self.gameboard.tile_x-1,self.gameboard.tile_orientation)
+        # print("LeftLeft val 0: ", validationValue0)
+        validationValue1 = self.gameboard.fn_move(self.gameboard.tile_x-1,self.gameboard.tile_orientation)
+        # print("LeftLeft val 1: ", validationValue1)
         # if one of the two is 0, returns 0 
-        return validationValue
+        return validationValue0 * validationValue1
 
     def moveRight(self):
         return self.gameboard.fn_move(self.gameboard.tile_x+1,self.gameboard.tile_orientation)
@@ -468,16 +486,15 @@ class TQAgent:
                 self.moveLeft()
             case _:
                 Exception("The action ID is not valid")
-        
-
-    
+            
     def readLogJSON(self, key):
         with open("logfiles/conf/log.json", "r") as file:
             data = json.load(file)
             return (data[key])
     
-    def writeBestRewardValue(self, value, label, index):
-        data = {"bestScore": value, "bestScoreLabel": label, "index": index}
+    def writeBestRewardValue(self, value, label="Placeholder", index=000000):
+        data = {"bestScore": int(value), "bestScoreLabel": label, "index": int(index)}
+        print(data)
         with open("logfiles/conf/log.json", "w") as file:
             json.dump(data, file)
 
