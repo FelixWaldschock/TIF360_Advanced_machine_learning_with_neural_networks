@@ -241,7 +241,6 @@ class TQAgent:
             if self.episode%1000==0:
                 saveEpisodes=[1000,2000,5000,10000,20000,50000,100000,200000,500000,1000000];
                 if self.episode in saveEpisodes:
-                    pass
                     # TO BE COMPLETED BY STUDENT
                     # Here you can save the rewards and the Q-table to data files for plotting of the rewards and the Q-table can be used to test how the agent plays
                     
@@ -504,12 +503,39 @@ class TDQNAgent:
         # Initialize training parameters
         self.alpha=alpha
         self.epsilon=epsilon
+        self.epsilonInit = epsilon
         self.epsilon_scale=epsilon_scale
         self.replay_buffer_size=replay_buffer_size
         self.batch_size=batch_size
         self.sync_target_episode_count=sync_target_episode_count
         self.episode=0
         self.episode_count=episode_count
+
+
+    # function to intialize the neural network
+    def fn_init_NN(self, numberOfHiddenNeurons):
+        self.Q_net = torch.nn.Sequential(
+            torch.nn.Linear(self.numberOfStates, numberOfHiddenNeurons),
+            torch.nn.ReLU(),
+            torch.nn.Linear(numberOfHiddenNeurons, numberOfHiddenNeurons),
+            torch.nn.ReLU(),
+            torch.nn.Linear(numberOfHiddenNeurons, self.numberOfActions)
+        )
+        self.loss_fn = torch.nn.MSELoss()
+        self.optimizer = torch.optim.Adam(self.Q_net.parameters(), lr=self.alpha) #? I guess that alpha is the learning rate
+
+
+        self.Q_target_net = torch.nn.Sequential(
+            torch.nn.Linear(self.numberOfStates, numberOfHiddenNeurons),
+            torch.nn.ReLU(),
+            torch.nn.Linear(numberOfHiddenNeurons, numberOfHiddenNeurons),
+            torch.nn.ReLU(),
+            torch.nn.Linear(numberOfHiddenNeurons, self.numberOfActions)
+        )
+
+        print(self.Q_net)
+        print(self.Q_target_net)
+
 
     def fn_init(self,gameboard):
         self.gameboard=gameboard
@@ -519,6 +545,24 @@ class TDQNAgent:
         # In this function you could set up and initialize the states, actions, the Q-networks (one for calculating actions and one target network), experience replay buffer and storage for the rewards
         # You can use any framework for constructing the networks, for example pytorch or tensorflow
         # This function should not return a value, store Q network etc as attributes of self
+        
+        ## Init number of states and actions, need to init the Networks
+        self.numberOfStates = gameboard.N_row * gameboard.N_col + 2;
+        self.numberOfActions = 16
+   
+        ## Init the Networks
+        self.numberOfHiddenNeurons = 64
+        self.fn_init_NN(self.numberOfHiddenNeurons)
+        self.gameReward = 0
+        self.gameRewardTracker = []
+        self.gameLength = 0
+        self.gameLengthTracker = []
+        
+        ## init the buffer for the replay data
+        self.buffer = []
+        
+        ## get the first state :D 
+        self.fn_read_state()
 
         # Useful variables: 
         # 'gameboard.N_row' number of rows in gameboard
@@ -541,6 +585,37 @@ class TDQNAgent:
         # In this function you could calculate the current state of the gane board
         # You can for example represent the state as a copy of the game board and the identifier of the current tile
         # This function should not return a value, store the state as an attribute of self
+        self.state = self.gameboard.board.copy()
+        self.tileState = self.gameboard.cur_tile_type
+
+        # handle initial tile state
+        if self.tileState == -1:
+            self.tileState = 0
+
+        ## hardcode the tile state
+        match self.tileState:
+            case 0:
+                self.tileState = np.array([0, 0])
+            case 1:
+                self.tileState = np.array([0, 1])
+            case 2:
+                self.tileState = np.array([1, 0])
+            case 3:
+                self.tileState = np.array([1, 1])
+
+        self.tileState *= 2
+        self.tileState -= 1
+
+        self.state = np.concatenate((self.state.flatten(), self.tileState))
+
+        self.state += 1
+        self.state /= 2
+
+        # print(self.state)
+
+        # convert the state to a tensor
+        self.state = torch.tensor(self.state, dtype=torch.float32)
+
 
         # Useful variables: 
         # 'self.gameboard.N_row' number of rows in gameboard
@@ -549,12 +624,32 @@ class TDQNAgent:
         # 'self.gameboard.cur_tile_type' identifier of the current tile that should be placed on the game board (integer between 0 and len(self.gameboard.tiles))
 
     def fn_select_action(self):
-        pass
+
         # TO BE COMPLETED BY STUDENT
         # This function should be written by you
         # Instructions:
         # Choose and execute an action, based on the output of the Q-network for the current state, or random if epsilon greedy
         # This function should not return a value, store the action as an attribute of self and exectute the action by moving the tile to the desired position and orientation
+
+        ## greefy policy
+        r = np.random.random()
+        ## update the eosilon
+        self.validationValue = 0
+    # while self.validationValue == 0:
+        self.epsilon = self.fn_getEpsilon()
+        if r < self.epsilon:
+            self.action = np.random.randint(0, self.numberOfActions)
+        else:
+            self.action = torch.argmax(self.Q_net(self.state)).item()
+
+        ## execute the action
+        newX = self.action // 4
+        newOrient = self.action % 4
+
+        self.validationValue = self.gameboard.fn_move(newX, newOrient)
+
+            # print("Action:", newX, newOrient)
+
 
         # Useful variables: 
         # 'self.epsilon' parameter epsilon in epsilon-greedy policy
@@ -568,7 +663,7 @@ class TDQNAgent:
         # You can use this function to map out which actions are valid or not
 
     def fn_reinforce(self,batch):
-        pass
+        
         # TO BE COMPLETED BY STUDENT
         # This function should be written by you
         # Instructions:
@@ -577,50 +672,198 @@ class TDQNAgent:
         # Then repeat for the target network to calculate the value \hat Q(s_new,a) of the new state (use \hat Q=0 if the new state is terminal)
         # This function should not return a value, the Q table is stored as an attribute of self
 
+        states, next_states = [], []
+        for sample in batch:
+            states.append(sample["old_state"])
+            next_states.append(sample["new_state"])
+
+        targets = torch.zeros(self.batch_size, self.numberOfActions)
+        # now we need a mask, as in our replay data we have for a given state only one action/reward
+        targets_mask = torch.zeros(self.batch_size, self.numberOfActions)
+
+        # now get the approximation from the target network
+        with torch.no_grad():
+            q_hat = self.Q_target_net(torch.stack(next_states, dim=0))
+        
+        # compute the targets
+        for index, sample in enumerate(batch):
+            if sample["gameover"]:
+                y = sample["reward"]
+            else:
+                y = sample["reward"] + np.nanmax(q_hat[index, :])
+            targets[index, sample["action"]] = y
+            targets_mask[index, sample["action"]] = 1
+
+        # Evaluate the old states, apply the mask and update the weights
+        self.optimizer.zero_grad()
+        outputs = self.Q_net(torch.stack(states, dim=0)) * targets_mask
+        loss = self.loss_fn(outputs, targets)
+        loss.backward()
+        self.optimizer.step()
+
+
         # Useful variables: 
         # The input argument 'batch' contains a sample of quadruplets used to update the Q-network
 
     def fn_turn(self):
         if self.gameboard.gameover:
             self.episode+=1
+
+        
+
+            self.gameRewardTracker.append(self.gameReward)
+            self.gameLengthTracker.append(self.gameLength)
+
+            # if (self.totalrewards > self.bestReward):
+            #     self.bestReward = self.totalrewards
+            #     self.bestQ = self.Q
+            #     self.bestStateTracker = self.stateTracker
+            #     self.bestActionTracker = self.actionTracker
+            #     print("New best reward: ", self.bestReward)
+            #     print("=======================================")
+            #     print("Episode: ", self.episode)
+            #     print("Sum of Rewards in this episode: ", np.sum(self.reward_tots))
+            #     print("Total reward for this episode: ", self.totalrewards)
+            #     print("Total length of episode: ", self.gameLength)
+            #     print("=======================================")
+
+            self.gameReward = 0
+
+
             if self.episode%100==0:
-                print('episode '+str(self.episode)+'/'+str(self.episode_count)+' (reward: ',str(np.sum(self.reward_tots[range(self.episode-100,self.episode)])),')')
+                gameRewardTrackerCopy = np.array(self.gameRewardTracker)
+                print('episode '+str(self.episode)+'/'+str(self.episode_count)+' (reward: ',str(np.sum(gameRewardTrackerCopy[range(self.episode-100,self.episode)])/100),')')
+                # self.print_network_weights(self.Q_net)
             if self.episode%1000==0:
                 saveEpisodes=[1000,2000,5000,10000,20000,50000,100000,200000,500000,1000000];
                 if self.episode in saveEpisodes:
-                    pass
                     # TO BE COMPLETED BY STUDENT
-                    # Here you can save the rewards and the Q-network to data files
+                    # Here you can save the rewards and the Q-table to data files for plotting of the rewards and the Q-table can be used to test how the agent plays
+                    pass
+                    # # read logfiles/conf/counter.txt
+                    # now = datetime.datetime.now()
+                    # # index = now.strftime("%Y-%m-%d %H:%M")
+                    
+
+                    # # # write index to /logfiles/conf/latest.txt
+                    # # with open("logfiles/conf/latest.txt", "w") as f:
+                    # #     f.write(index)
+
+                    # bestScore = self.readLogJSON("bestScore")
+                    # index = self.sessionIndex
+                    
+                    # # if np.max(np.array(self.totalRewardTracker)) > bestScore:
+                    # #     self.writeBestRewardValue(self.totalrewards, "newBest", index)
+                    # #     print("New best score: ", self.totalrewards)
+                    # # else:
+                    # self.writeBestRewardValue(bestScore, "somelabel", index)
+
+                    # # save the rewards
+                    # np.save("logfiles/rewards_" + str(index) + '_' + str(self.episode), np.array(self.totalRewardTracker))
+                    # # save the Q-table
+                    # np.save("logfiles/Q-table_" + str(index)+ '_' + str(self.episode), self.bestQ)
+                    # # save game length tracker
+                    # np.save("logfiles/gameLengthTracker_" + str(index)+ '_' + str(self.episode), np.array(self.gameLengthTracker))
+                    # # save the state tracker
+                    # np.save("logfiles/stateTracker_" + str(index)+ '_' + str(self.episode), np.array(self.bestStateTracker))
+                    # # save the action tracker
+                    # np.save("logfiles/actionTracker_" + str(index)+ '_' + str(self.episode), np.array(self.bestActionTracker))
+                    # # # save the moving average tracker
+                    # # np.save("logfiles/movingAverageTracker_" + str(index)+ '_' + str(self.episode), np.array(self.movingAverageTracker))
+
+                    # # save the state tracker
+                    # # np.save("logfiles/stateTracker_" + str(index), np.array(self.stateTracker))
+                    # print("Saved as version: " + str(index))
+                    # # TO BE COMPLETED BY STUDENT
+                    # # Here you can save the rewards and the Q-network to data files
             if self.episode>=self.episode_count:
+                self.sessionIndex = "DQN"
+                #self.writeBestRewardValue(self.bestReward, "bestScore", self.sessionIndex)
+                np.save("logfiles/rewards_DQ" + str(self.sessionIndex) + '_' + str(self.episode), np.array(self.gameRewardTracker))
+                np.save("logfiles/gameLengthTracker_DQ" + str(self.sessionIndex)+ '_' + str(self.episode), np.array(self.gameLengthTracker))
                 raise SystemExit(0)
+            
+            self.gameboard.fn_restart()
+
+        
+            if (len(self.buffer) >= self.replay_buffer_size) and ((self.episode % self.sync_target_episode_count)==0):
+                pass
+                # TO BE COMPLETED BY STUDENT
+                # Here you should write line(s) to copy the current network to the target network
+                self.Q_target_net.load_state_dict(self.Q_net.state_dict())
+                print("Synced the networks")
+
             else:
-                if (len(self.exp_buffer) >= self.replay_buffer_size) and ((self.episode % self.sync_target_episode_count)==0):
-                    pass
-                    # TO BE COMPLETED BY STUDENT
-                    # Here you should write line(s) to copy the current network to the target network
                 self.gameboard.fn_restart()
         else:
-            # Select and execute action (move the tile to the desired column and orientation)
-            self.fn_select_action()
-            # TO BE COMPLETED BY STUDENT
-            # Here you should write line(s) to copy the old state into the variable 'old_state' which is later stored in the ecperience replay buffer
+            
+            # feed the replay 
+            old_state = self.state
 
-            # Drop the tile on the game board
-            reward=self.gameboard.fn_drop()
 
-            # TO BE COMPLETED BY STUDENT
-            # Here you should write line(s) to add the current reward to the total reward for the current episode, so you can save it to disk later
+            with torch.no_grad():
 
-            # Read the new state
-            self.fn_read_state()
-
-            # TO BE COMPLETED BY STUDENT
-            # Here you should write line(s) to store the state in the experience replay buffer
-
-            if len(self.exp_buffer) >= self.replay_buffer_size:
+                # Select and execute action (move the tile to the desired column and orientation)
+                self.fn_select_action()
                 # TO BE COMPLETED BY STUDENT
+                # Here you should write line(s) to copy the old state into the variable 'old_state' which is later stored in the ecperience replay buffer
+
+                # Drop the tile on the game board
+                reward = self.gameboard.fn_drop()
+                self.gameReward += reward
+
+                # print(reward)
+
+                # TO BE COMPLETED BY STUDENT
+                # Here you should write line(s) to add the current reward to the total reward for the current episode, so you can save it to disk later
+
+                # Read the new state
+                self.fn_read_state()
+
+                # TO BE COMPLETED BY STUDENT
+                # Here you should write line(s) to store the state in the experience replay buffer
+                self.buffer.append(
+                {
+                    "old_state": old_state,
+                    "action": self.action,
+                    "reward": reward,
+                    "new_state": self.state,
+                    "gameover": self.gameboard.gameover,
+                })
+                if (len(self.buffer) >= self.replay_buffer_size + 1):
+                    self.buffer.pop(0)
+                
+
+            if len(self.buffer) >= self.replay_buffer_size:
+                # TO BE COMPLETED BY STUDENT
+                batch = random.sample(self.buffer, self.batch_size)              
+                
                 # Here you should write line(s) to create a variable 'batch' containing 'self.batch_size' quadruplets 
                 self.fn_reinforce(batch)
+
+    def fn_getEpsilon(self):
+        tmp = np.array([self.epsilonInit, 1 - self.episode / self.epsilon_scale])
+        # print(tmp)
+        tmp = np.max(tmp)
+
+        return tmp
+        # return self.epsilon
+
+    def readLogJSON(self, key):
+        with open("logfiles/conf/log.json", "r") as file:
+            data = json.load(file)
+            return (data[key])
+    
+    def writeBestRewardValue(self, value, label="Placeholder", index=000000):
+        data = {"bestScore": int(value), "bestScoreLabel": label, "index": int(index)}
+        print(data)
+        with open("logfiles/conf/log.json", "w") as file:
+            json.dump(data, file)
+
+    def print_network_weights(self, network):
+        for name, param in network.named_parameters():
+            if param.requires_grad:
+                print(name, param.data)
 
 
 class THumanAgent:
