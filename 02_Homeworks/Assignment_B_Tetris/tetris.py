@@ -37,7 +37,8 @@ elif param_set==PARAM_TASK1b:
 elif param_set==PARAM_TASK1c:
     strategy_file=''
 elif param_set==PARAM_TASK2a:
-    strategy_file=''
+    strategy_file='logfiles/Q-net_DQN_2_10000'
+    # strategy_file=''
 elif param_set==PARAM_TASK2b:
     strategy_file=''
 

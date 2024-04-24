@@ -573,7 +573,9 @@ class TDQNAgent:
         # 'self.replay_buffer_size' the number of quadruplets stored in the experience replay buffer
 
     def fn_load_strategy(self,strategy_file):
-        pass
+        self.Q_net.load_state_dict(torch.load(strategy_file))
+
+
         # TO BE COMPLETED BY STUDENT
         # Here you can load the Q-network (to Q-network of self) from the strategy_file
 
@@ -714,19 +716,7 @@ class TDQNAgent:
             self.gameRewardTracker.append(self.gameReward)
             self.gameLengthTracker.append(self.gameLength)
 
-            # if (self.totalrewards > self.bestReward):
-            #     self.bestReward = self.totalrewards
-            #     self.bestQ = self.Q
-            #     self.bestStateTracker = self.stateTracker
-            #     self.bestActionTracker = self.actionTracker
-            #     print("New best reward: ", self.bestReward)
-            #     print("=======================================")
-            #     print("Episode: ", self.episode)
-            #     print("Sum of Rewards in this episode: ", np.sum(self.reward_tots))
-            #     print("Total reward for this episode: ", self.totalrewards)
-            #     print("Total length of episode: ", self.gameLength)
-            #     print("=======================================")
-
+          
             self.gameReward = 0
 
 
@@ -740,47 +730,16 @@ class TDQNAgent:
                     # TO BE COMPLETED BY STUDENT
                     # Here you can save the rewards and the Q-table to data files for plotting of the rewards and the Q-table can be used to test how the agent plays
                     pass
-                    # # read logfiles/conf/counter.txt
-                    # now = datetime.datetime.now()
-                    # # index = now.strftime("%Y-%m-%d %H:%M")
-                    
-
-                    # # # write index to /logfiles/conf/latest.txt
-                    # # with open("logfiles/conf/latest.txt", "w") as f:
-                    # #     f.write(index)
-
-                    # bestScore = self.readLogJSON("bestScore")
-                    # index = self.sessionIndex
-                    
-                    # # if np.max(np.array(self.totalRewardTracker)) > bestScore:
-                    # #     self.writeBestRewardValue(self.totalrewards, "newBest", index)
-                    # #     print("New best score: ", self.totalrewards)
-                    # # else:
-                    # self.writeBestRewardValue(bestScore, "somelabel", index)
-
-                    # # save the rewards
-                    # np.save("logfiles/rewards_" + str(index) + '_' + str(self.episode), np.array(self.totalRewardTracker))
-                    # # save the Q-table
-                    # np.save("logfiles/Q-table_" + str(index)+ '_' + str(self.episode), self.bestQ)
-                    # # save game length tracker
-                    # np.save("logfiles/gameLengthTracker_" + str(index)+ '_' + str(self.episode), np.array(self.gameLengthTracker))
-                    # # save the state tracker
-                    # np.save("logfiles/stateTracker_" + str(index)+ '_' + str(self.episode), np.array(self.bestStateTracker))
-                    # # save the action tracker
-                    # np.save("logfiles/actionTracker_" + str(index)+ '_' + str(self.episode), np.array(self.bestActionTracker))
-                    # # # save the moving average tracker
-                    # # np.save("logfiles/movingAverageTracker_" + str(index)+ '_' + str(self.episode), np.array(self.movingAverageTracker))
-
-                    # # save the state tracker
-                    # # np.save("logfiles/stateTracker_" + str(index), np.array(self.stateTracker))
-                    # print("Saved as version: " + str(index))
                     # # TO BE COMPLETED BY STUDENT
                     # # Here you can save the rewards and the Q-network to data files
             if self.episode>=self.episode_count:
-                self.sessionIndex = "DQN"
+                self.sessionIndex = "DQN_2"
                 #self.writeBestRewardValue(self.bestReward, "bestScore", self.sessionIndex)
                 np.save("logfiles/rewards_DQ" + str(self.sessionIndex) + '_' + str(self.episode), np.array(self.gameRewardTracker))
                 np.save("logfiles/gameLengthTracker_DQ" + str(self.sessionIndex)+ '_' + str(self.episode), np.array(self.gameLengthTracker))
+                # save the Q-net
+                torch.save(self.Q_net.state_dict(), "logfiles/Q-net_" + str(self.sessionIndex)+ '_' + str(self.episode))
+
                 raise SystemExit(0)
             
             self.gameboard.fn_restart()
