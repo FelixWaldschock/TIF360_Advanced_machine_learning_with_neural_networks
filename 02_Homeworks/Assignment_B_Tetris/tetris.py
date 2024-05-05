@@ -38,7 +38,7 @@ elif param_set==PARAM_TASK1c:
     strategy_file=''
 elif param_set==PARAM_TASK2a:
     strategy_file='logfiles/Q-net_DQN_2_10000'
-    # strategy_file=''
+    strategy_file=''
 elif param_set==PARAM_TASK2b:
     strategy_file=''
 
@@ -129,7 +129,6 @@ elif param_set==PARAM_TASK2a:
     alpha=0.001
     epsilon=0.001
     episode_count=10000
-    # episode_count=10
 
     epsilon_scale=5000
     replay_buffer_size=10000

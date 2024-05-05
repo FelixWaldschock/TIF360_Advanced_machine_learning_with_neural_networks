@@ -711,8 +711,6 @@ class TDQNAgent:
         if self.gameboard.gameover:
             self.episode+=1
 
-        
-
             self.gameRewardTracker.append(self.gameReward)
             self.gameLengthTracker.append(self.gameLength)
 
@@ -733,7 +731,7 @@ class TDQNAgent:
                     # # TO BE COMPLETED BY STUDENT
                     # # Here you can save the rewards and the Q-network to data files
             if self.episode>=self.episode_count:
-                self.sessionIndex = "DQN_2"
+                self.sessionIndex = "DQN_testFreedAxl"
                 #self.writeBestRewardValue(self.bestReward, "bestScore", self.sessionIndex)
                 np.save("logfiles/rewards_DQ" + str(self.sessionIndex) + '_' + str(self.episode), np.array(self.gameRewardTracker))
                 np.save("logfiles/gameLengthTracker_DQ" + str(self.sessionIndex)+ '_' + str(self.episode), np.array(self.gameLengthTracker))
